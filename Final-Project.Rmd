@@ -1,0 +1,135 @@
+---
+title: "Algae and Climate Change"
+author: "Chandler Sutherland and Clara Park"
+params:
+  include: true
+output:
+  
+  github_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = params$include)
+```
+
+
+```{r, message = FALSE}
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+```
+
+The unicellular, green alga _Chlamydomonas reinhardtii_ has been used as a model species for researches due to its haploid state, remarkably quick reproduction, and similarity in photosystem structure to land plants. With global surface temperatures warming and increased frequency and intensity of drought due to climate change, food supply for the global future is of concern. Understanding the genes, proteins, and biochemical pathways involved with light quenching is imperative to our ability to survive as climate change alters our ecosystem faster than evolution can follow. 
+
+![Electron Microscope Image of _Chlamydomonas_. Creative Commons 2018](Chlamy_img.jpg)
+
+
+When the rate of light absorption of a plant or green algae is greater than the rate of photosynthesis, there is an excess of light in the plant that must be quenched, or dispersed back into the environment. If the plant cannot successfully dissipate this excess light energy by vibration it can cause damage to the photosystems and cellular systems. One method plants and green algae have developed to dissipate excess energy is nonphotochemical quenching (NPQ), where chlorophyll excited by light energy is harmlessly returned back to ground state, with the energy released as heat. The rate of non-photochemical quenching can be measured by flourescence of a molecule, using a video-imager device and an actin light source.
+
+The Niyogi lab in the Plant and Microbial Biology Department of the University of California, Berkeley has targeted the PSBS gene with CRISPR-CPF1 (a cousin protein of CAS-9) to begin to unlock the secrets of non-photochemical quenching, or dissipation of excess light energy in photosynthetic organisms. This CRISPR transformation, however, has generated 400 potential mutants. These mutants were screened using a video-imager that measured non-photochemical quenching via fluorescence of chlorophyll as a function of light exposure. In the first part of this project we intend to tidy this data, compare the experimental controls to published data, and visualize it as line graphs. In the second section, we will determine if any of the spots are potentially mutants by highlighting any outliers in the dataset and comparing the curves to other known mutants. 
+
+The data for this report was obtained via video imager measurements made by Chandler Sutherland in conjunction with the Niyogi lab. 
+
+
+## NPQ Control Values 
+#### Reading in the data collected by the Niyogi lab to compare to published findings  
+
+The first three spots of the first two plates are strains of _Chlamydomonas_  are previously generated mutants with NPQ values documented in scientific literature, with one spot acting as the wild type, or unchanged, mutant. We will first isolate these controls and compare them to published controls to determine if our experimental paramters were reasonable and our strains healthy. 
+```{r, warning=FALSE, message=FALSE}
+#Read in both datasets for the HL controls and format the date objects correctly 
+HL_S1 <- read_csv2("Data/180917 S1 HL.csv")
+HL_S2 <- read_csv2("Data/180917 S2 HL.csv")
+controls <- HL_S1 %>% left_join(HL_S2, "No.") %>%
+  mutate(Date.x = as.Date(as.character(Date.x), format = "%d%m%y")) %>%
+  mutate(Date.y = as.Date(as.character(Date.y), format = "%d%m%y")) %>%
+  mutate_if(is.character, as.numeric)
+
+#Convert time to the more usable time elapsed since start of the experiment, and tidy the data 
+#Create a new variable, time elapsed, which is consistent across the experiments to allow for comparison across time points 
+tidy_controls <- controls %>%
+  mutate(Time_elapsed = Time.x - Time.x[1]) %>%
+  select(Date.x:NPQ3.x, Date.y:NPQ3.y) %>%
+  rename("lhcsr 1+" = NPQ1.x,
+         "NPQ4 -" = NPQ2.x,
+         "NPQ4 lhcsr1" = NPQ3.x,
+         "ami 1" = NPQ1.y,
+         "ami 6" = NPQ2.y,
+         "Wild type" = NPQ3.y) %>%
+  mutate(Time_elapsed = Time.x - Time.x[1]) %>%
+  select(-Date.x, -Time.x, -Date.y, -Time.y, -PAR.x, -PAR.y) %>%
+  gather(`lhcsr 1+`, `NPQ4 -`, `NPQ4 lhcsr1`, `ami 1`, `ami 6`, `Wild type`,
+         key = "control", value = "NPQ value")
+```
+
+```{r, message = FALSE, warning = FALSE}
+ggplot(tidy_controls) + geom_line(mapping = aes(x = Time_elapsed,
+                                                y = `NPQ value`,
+                                                color = control)) +
+  labs(title = "Control NPQ Values vs Time", x = "Time elapsed (seconds)")
+```
+
+## Comparison to Published Work 
+
+![NPQ](NPQ_figure.jpg)
+
+> Figure : Berteotti, Silvia, et al. “Increased Biomass Productivity in Green Algae by Tuning Non-Photochemical Quenching.” Scientific Reports, vol. 6, no. 1, 2016, doi:10.1038/srep21339.
+
+
+
+
+In this figure, only wildtype, NPQ4, and NPQ4 lhcsr1 double mutant's NPQ values in high light are published. We will compare to this figure as a control for our experimental data. 
+
+```{r, message = FALSE, warning=FALSE}
+figure_compare <- tidy_controls %>% filter(control == "Wild type" |
+                           control == "NPQ4 -" |
+                           control == "NPQ4 lhcsr1") %>%
+  mutate(time_elapsed = Time_elapsed / 60)
+
+ggplot(figure_compare, aes(x = time_elapsed,
+                           y = `NPQ value`,
+                           group = control)) +
+  geom_line(aes(color = control)) +
+  geom_point(aes(color = control, shape = control)) +
+  labs(title = "NPQ Values vs Time", x = "Time elapsed (minutes)") +
+  scale_color_manual(breaks = c("Wild type", "NPQ4 -", "NPQ4 lhcsr1"),
+                     values = c("#FF3300", "#0000FF", "#000000")) +
+  scale_shape_discrete(breaks = c("Wild type", "NPQ4 -", "NPQ4 lhcsr1"))
+
+```
+The shape of the mutant curves Wild type and NPQ4 lhcsr1 match the published data. Our curve for NPQ4 - more closesly matches a reduced wild type curve than the published curve, which may indicate contamination. Our NPQ values range from 0.00 to 0.15, whereas the published figure has 0.00 to 1.00. This is a full magnitude of difference in our collected data and the published figure, suggesting our protocol for collecting NPQ values needs to be changed to ellicit a broader range. 
+ 
+## Mutant Analysis 
+
+```{r, warning = FALSE, message = FALSE}
+#Here we create a function to read in our data and tidy it, and output a plot 
+
+tidy_NPQ <- function(table){
+  table %>%
+    mutate(Date = as.Date(as.character(Date), format = "%d%m%y")) %>%
+    mutate_if(is.character, as.numeric) %>%
+    mutate(Time_elapsed = Time - Time[1]) %>%
+    gather(-Date, -Time, -No., -PAR, -Time_elapsed,
+           key = "spot", value = "NPQ Value") %>%
+    filter(spot != "NPQ1" & spot != "NPQ2" & spot != "NPQ3")
+  }
+
+plot_NPQ <- function(tidy_table){
+    tidy_table %>% na.omit() %>%
+    ggplot() + geom_line(mapping = aes(x = Time_elapsed,
+                                       y = `NPQ Value`,
+                                       color = spot),
+                         show.legend = FALSE) +
+  labs(title = "NPQ Values vs Time", x = "Time elapsed (seconds)")
+}
+
+tidy_mutant_1 <- tidy_NPQ(HL_S1)
+tidy_mutant_2 <- tidy_NPQ(HL_S2)
+
+map(list(tidy_mutant_1, tidy_mutant_2), plot_NPQ)
+```
+
+
+

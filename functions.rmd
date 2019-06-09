@@ -1,0 +1,73 @@
+---
+title: "Writing functions in R"
+author: 'Chandler Sutherland'
+output: github_document
+---
+What makes this document an R markdown is the output: call in the header
+
+
+Today we will be learning to write our own functions in R 
+
+```{r}
+library(tidyverse)
+```
+
+Simulations of population dynamics 
+
+```{r}
+
+#making x a numeric vector ten spaces long. R is not zero indexed, so need to be a 11 length vector
+growth <- function(xt, r, K){
+    xt + r*xt * (1 - xt/K)
+}
+
+simulate <- function(max_time, x0, r, K){
+
+  x <- numeric(max_time)
+  x[1] <- x0
+  
+  #t is a temporary variable, from 1:10. {} is the area in which they are   changing
+  
+  for (t in 1:(max_time - 1)){
+    x[t + 1] <- growth(xt = x[t], r = r, K)
+  }
+  
+  pop_data <- data_frame(time = 1:max_time, pop_size = x)
+  pop_data
+
+}
+
+```
+
+```{r}
+
+
+r_range <- seq(1, 3, length.out = 400)
+
+df <- simulate(100, 10, r[1], 100) %>%
+  filter(time == 100) %>%
+  mutate(r = r)
+
+for(r in r_range){
+  df1 <- simulate(100, 10, r, 100) %>%
+    filter(time == 100) %>% 
+    mutate(r = r)
+  
+  df <- bind_rows(df, df1)
+  
+}
+
+
+df %>% ggplot(aes(r, pop_size)) + geom_point()
+```
+
+$$ x_{t + 1} = x_t + r x_t \left(1 - \frac{x_t}{K} \right) $$
+```{r}
+
+exp_growth <- function(xt, r){
+    r*xt
+}
+```
+
+
+
